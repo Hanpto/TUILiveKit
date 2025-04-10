@@ -3,6 +3,7 @@ import 'package:rtc_room_engine/rtc_room_engine.dart';
 import 'package:tencent_live_uikit/voice_room/index.dart';
 
 import '../../common/index.dart';
+import 'live_identity_generator.dart';
 import 'live_stream/widget/live_room/index.dart';
 
 class TUILiveKitNavigatorObserver extends RouteObserver {
@@ -12,9 +13,6 @@ class TUILiveKitNavigatorObserver extends RouteObserver {
   factory TUILiveKitNavigatorObserver() {
     return instance;
   }
-
-  static const String routeLiveRoomAudience = "route_live_room_audience";
-  static const String routeVoiceRoomAudience = "route_voice_room_audience";
 
   static bool isRepeatClick = false;
 
@@ -34,7 +32,7 @@ class TUILiveKitNavigatorObserver extends RouteObserver {
     Navigator.push(
         getContext(),
         MaterialPageRoute(
-          settings: const RouteSettings(name: routeLiveRoomAudience),
+          settings: const RouteSettings(name: Constants.routeLiveRoomAudience),
           builder: (context) {
             return TUILiveRoomAudienceWidget(roomId: liveInfo.roomInfo.roomId);
           },
@@ -44,14 +42,17 @@ class TUILiveKitNavigatorObserver extends RouteObserver {
 
   void backToLiveRoomAudiencePage() {
     Navigator.popUntil(getContext(), (route) {
-      if (route.settings.name == routeLiveRoomAudience) {
+      if (route.settings.name == Constants.routeLiveRoomAudience) {
         return true;
       }
       return false;
     });
   }
 
-  void enterVoiceRoomAudiencePage(TUILiveInfo liveInfo) {
+  void enterVoiceRoomPage(TUILiveInfo liveInfo,
+      {void Function(String roomId, RoomType roomType, bool isOwner)?
+          onMinimized,
+      bool isRestore = false}) {
     if (isRepeatClick) {
       return;
     }
@@ -59,23 +60,25 @@ class TUILiveKitNavigatorObserver extends RouteObserver {
     Navigator.push(
         getContext(),
         MaterialPageRoute(
-          settings: const RouteSettings(name: routeVoiceRoomAudience),
+          settings: const RouteSettings(name: Constants.routeVoiceRoom),
           builder: (context) {
             final isOwner =
                 liveInfo.roomInfo.ownerId == TUIRoomEngine.getSelfInfo().userId;
             return TUIVoiceRoomWidget(
-                roomId: liveInfo.roomInfo.roomId,
-                behavior:
-                    isOwner ? RoomBehavior.autoCreate : RoomBehavior.join);
+              roomId: liveInfo.roomInfo.roomId,
+              behavior: isOwner ? RoomBehavior.autoCreate : RoomBehavior.join,
+              onMinimize: onMinimized,
+              isRestore: isRestore,
+            );
           },
         ));
 
     isRepeatClick = false;
   }
 
-  void backToVoiceRoomAudiencePage() {
+  void backToVoiceRoomPage() {
     Navigator.popUntil(getContext(), (route) {
-      if (route.settings.name == routeVoiceRoomAudience) {
+      if (route.settings.name == Constants.routeVoiceRoom) {
         return true;
       }
       return false;

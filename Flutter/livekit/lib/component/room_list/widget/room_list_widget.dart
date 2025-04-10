@@ -6,7 +6,9 @@ import '../service/room_list_service.dart';
 import '../store/room_list_state.dart';
 
 class RoomListWidget extends StatefulWidget {
-  const RoomListWidget({super.key});
+  final void Function(TUILiveInfo liveInfo) onClickItem;
+
+  const RoomListWidget({super.key, required this.onClickItem});
 
   @override
   RoomListWidgetState createState() {
@@ -264,12 +266,6 @@ extension RoomListWidgetStateLogicExtension on RoomListWidgetState {
 
   void _clickItem(int index) {
     final liveInfo = _roomListState.liveInfoList.value[index];
-    final roomType =
-        LiveIdentityGenerator.instance.getIDType(liveInfo.roomInfo.roomId);
-    if (roomType == RoomType.voice) {
-      TUILiveKitNavigatorObserver.instance.enterVoiceRoomAudiencePage(liveInfo);
-    } else {
-      TUILiveKitNavigatorObserver.instance.enterLiveRoomAudiencePage(liveInfo);
-    }
+    widget.onClickItem(liveInfo);
   }
 }

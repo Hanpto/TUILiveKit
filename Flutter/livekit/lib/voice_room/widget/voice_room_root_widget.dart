@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:live_uikit_gift/live_uikit_gift.dart';
 import 'package:rtc_room_engine/rtc_room_engine.dart';
 import 'package:tencent_live_uikit/common/screen/index.dart';
+import 'package:tencent_live_uikit/live_identity_generator.dart';
 import 'package:tencent_live_uikit/live_navigator_observer.dart';
 import 'package:tencent_live_uikit/voice_room/widget/panel/seat_invitation_panel_widget.dart';
 import 'package:tencent_live_uikit/voice_room/widget/panel/user_management_panel_widget.dart';
@@ -26,13 +27,16 @@ class VoiceRoomRootWidget extends StatefulWidget {
   final VoiceRoomManager manager;
   final SeatGridController seatGridController;
   final bool isCreate;
+  final void Function(String roomId, RoomType roomType, bool isOwner)?
+      onMinimize;
 
   const VoiceRoomRootWidget(
       {super.key,
       required this.roomId,
       required this.manager,
       required this.seatGridController,
-      required this.isCreate});
+      required this.isCreate,
+      this.onMinimize});
 
   @override
   State<VoiceRoomRootWidget> createState() => _VoiceRoomRootWidgetState();
@@ -43,7 +47,7 @@ class _VoiceRoomRootWidgetState extends State<VoiceRoomRootWidget> {
   late final VoiceRoomManager manager;
   late final SeatGridController seatGridController;
   late final bool isCreate;
-  late final bool isOwner;
+  bool isOwner = true;
   final ValueNotifier<bool> enterRoomSuccess = ValueNotifier(false);
   late BarrageSendController _barrageSendController;
   BarrageDisplayController? _barrageDisplayController;
@@ -60,7 +64,6 @@ class _VoiceRoomRootWidgetState extends State<VoiceRoomRootWidget> {
     manager = widget.manager;
     seatGridController = widget.seatGridController;
     isCreate = widget.isCreate;
-    isOwner = widget.isCreate;
     if (isCreate) {
       _start(roomId: roomId);
     } else {
@@ -161,10 +164,14 @@ class _VoiceRoomRootWidgetState extends State<VoiceRoomRootWidget> {
         child: SizedBox(
             width: _screenSize.width,
             height: context.adapter.getHeight(245),
-            child: SeatGridWidget(
-                controller: seatGridController,
-                onSeatWidgetTap: (seatInfo) {
-                  _onTapSeatGridWidget(seatInfo);
+            child: ValueListenableBuilder(
+                valueListenable: enterRoomSuccess,
+                builder: (context, success, _) {
+                  return SeatGridWidget(
+                      controller: seatGridController,
+                      onSeatWidgetTap: (seatInfo) {
+                        _onTapSeatGridWidget(seatInfo);
+                      });
                 })));
   }
 
@@ -226,18 +233,23 @@ class _VoiceRoomRootWidgetState extends State<VoiceRoomRootWidget> {
   }
 
   Widget _initBottomMenuWidget() {
-    return Positioned(
-        right: context.adapter.getWidth(27),
-        bottom: context.adapter.getHeight(36),
-        child: SizedBox(
-            width: isOwner
-                ? context.adapter.getWidth(72)
-                : context.adapter.getWidth(152),
-            height: context.adapter.getHeight(46),
-            child: BottomMenuWidget(
-                manager: manager,
-                seatGridController: seatGridController,
-                isOwner: isOwner)));
+    return ValueListenableBuilder(
+      valueListenable: enterRoomSuccess,
+      builder: (context, success, _) {
+        return Positioned(
+            right: context.adapter.getWidth(27),
+            bottom: context.adapter.getHeight(36),
+            child: SizedBox(
+                width: isOwner
+                    ? context.adapter.getWidth(72)
+                    : context.adapter.getWidth(152),
+                height: context.adapter.getHeight(46),
+                child: BottomMenuWidget(
+                    manager: manager,
+                    seatGridController: seatGridController,
+                    isOwner: isOwner)));
+      },
+    );
   }
 
   Widget _initBarrageInputWidget() {
@@ -272,7 +284,7 @@ class _VoiceRoomRootWidgetState extends State<VoiceRoomRootWidget> {
           child: ListenableBuilder(
               listenable: Listenable.merge([
                 seatGridController.userState.hasAudioStreamUserList,
-                manager.seatState.seatList
+                manager.seatState.seatList,
               ]),
               builder: (context, child) {
                 final hasAudioUserIdList = Set<String>.from(
@@ -358,11 +370,13 @@ extension _RoomOperation on _VoiceRoomRootWidgetState {
   }
 
   void _didEnterRoom(TUIRoomInfo roomInfo) {
-    _initTopWidget();
+    isOwner = roomInfo.ownerId == manager.userState.selfInfo.userId;
+    debugPrint('[krab] isOwner:$isOwner');
     manager.onRoomInfoChanged(roomInfo);
     manager.fetchUserList();
     manager.fetchSeatList();
     manager.fetchRoomOwnerInfo(roomInfo.ownerId);
+
     enterRoomSuccess.value = true;
 
     if (!isOwner) {
@@ -407,6 +421,9 @@ extension _MediaOperation on _VoiceRoomRootWidgetState {
 extension _TopWidgetTapEventHandler on _VoiceRoomRootWidgetState {
   void _onTapTopWidget(TopWidgetTapEvent event) {
     switch (event) {
+      case TopWidgetTapEvent.float:
+        widget.onMinimize?.call(roomId, RoomType.voice, isOwner);
+        Navigator.of(context).pop();
       case TopWidgetTapEvent.stop:
         isOwner ? _showExitConfirmPanel() : _normalUserLeave();
         break;
@@ -763,7 +780,7 @@ extension _SeatGridObserver on _VoiceRoomRootWidgetState {
   }
 
   void _navigateBack() {
-    TUILiveKitNavigatorObserver.instance.backToVoiceRoomAudiencePage();
+    TUILiveKitNavigatorObserver.instance.backToVoiceRoomPage();
     Navigator.of(context).pop();
   }
 

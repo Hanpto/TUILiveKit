@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:tencent_live_uikit/tencent_live_uikit.dart';
-import 'package:tencent_live_uikit/voice_room/index.dart';
+import 'package:tencent_live_uikit_example/src/buttons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../generated/l10n.dart';
 import '../../store/app_store.dart';
+
+class MinimizedInfo {
+  String roomId;
+  RoomType roomType;
+  bool isOwner;
+
+  MinimizedInfo(
+      {this.roomId = '', this.roomType = RoomType.voice, this.isOwner = false});
+}
 
 class VoiceRoomWidget extends StatefulWidget {
   const VoiceRoomWidget({super.key});
@@ -15,6 +24,7 @@ class VoiceRoomWidget extends StatefulWidget {
 
 class _VoiceRoomWidgetState extends State<VoiceRoomWidget> {
   late double _screenWidth;
+  MinimizedInfo? minimizedInfo;
 
   @override
   void initState() {
@@ -28,19 +38,51 @@ class _VoiceRoomWidgetState extends State<VoiceRoomWidget> {
     return PopScope(
         canPop: false,
         child: Scaffold(
-          body: SizedBox(
-            width: _screenWidth,
-            height: double.infinity,
-            child: Stack(
-              children: [
-                _initTopBackgroundWidget(),
-                _initAppBarWidget(),
-                _initContentWidget(),
-                _initBroadcastWidget()
-              ],
+          body: FloatButtonOverlay(
+            child: SizedBox(
+              width: _screenWidth,
+              height: double.infinity,
+              child: Stack(
+                children: [
+                  _initTopBackgroundWidget(),
+                  _initAppBarWidget(),
+                  _initContentWidget(),
+                  _initBroadcastWidget()
+                ],
+              ),
             ),
+            restoreCallback: () async {
+              if (minimizedInfo == null) return;
+              final liveInfo = await _getLiveInfo(minimizedInfo!.roomId);
+              if (liveInfo != null) {
+                TUILiveKitNavigatorObserver().enterVoiceRoomPage(liveInfo!,
+                    onMinimized: (roomId, roomType, isOwner) {
+                  minimizedInfo = MinimizedInfo(
+                      roomId: roomId, roomType: roomType, isOwner: isOwner);
+                  floatingButtonVisibility.value = true;
+                }, isRestore: true);
+              }
+              floatingButtonVisibility.value = false;
+              minimizedInfo = null;
+            },
+            exitCallback: () {
+              if (minimizedInfo == null) return;
+              minimizedInfo!.isOwner
+                  ? TUIRoomEngine.sharedInstance().destroyRoom()
+                  : TUIRoomEngine.sharedInstance().exitRoom(true);
+
+              floatingButtonVisibility.value = false;
+              minimizedInfo = null;
+            },
           ),
         ));
+  }
+
+  Future<TUILiveInfo?> _getLiveInfo(String roomId) async {
+    final TUILiveListManager liveListManager = TUIRoomEngine.sharedInstance()
+        .getExtension(TUIExtensionType.liveListManager);
+    final result = await liveListManager.getLiveInfo(roomId);
+    return result.data;
   }
 
   Widget _initTopBackgroundWidget() {
@@ -96,12 +138,16 @@ class _VoiceRoomWidgetState extends State<VoiceRoomWidget> {
   }
 
   Widget _initContentWidget() {
-    return const Positioned(
+    return Positioned(
       top: 80,
       left: 0,
       right: 0,
       bottom: 0,
-      child: LiveListWidget(),
+      child: LiveListWidget(onMinimize: (roomId, roomType, isOwner) {
+        minimizedInfo =
+            MinimizedInfo(roomId: roomId, roomType: roomType, isOwner: isOwner);
+        floatingButtonVisibility.value = true;
+      }),
     );
   }
 
@@ -126,7 +172,10 @@ class _VoiceRoomWidgetState extends State<VoiceRoomWidget> {
                 decoration: BoxDecoration(
                     color: const Color(0xFF1C66E5),
                     borderRadius: BorderRadius.circular(24)),
-                child: Text(S.current.app_broadcast('+'), style: const TextStyle(fontSize: 20, color: Colors.white),),
+                child: Text(
+                  S.current.app_broadcast('+'),
+                  style: const TextStyle(fontSize: 20, color: Colors.white),
+                ),
               )),
         ),
       ),
@@ -135,7 +184,6 @@ class _VoiceRoomWidgetState extends State<VoiceRoomWidget> {
 }
 
 extension _VoiceRoomWidgetStateLogicExtension on _VoiceRoomWidgetState {
-
   void _enterVoiceRoomWidget() {
     Navigator.push(context, MaterialPageRoute(
       builder: (context) {
@@ -146,7 +194,12 @@ extension _VoiceRoomWidgetStateLogicExtension on _VoiceRoomWidgetState {
         return TUIVoiceRoomWidget(
             roomId: roomId,
             behavior: RoomBehavior.prepareCreate,
-            params: params);
+            params: params,
+            onMinimize: (roomId, roomType, isOwner) {
+              minimizedInfo = MinimizedInfo(
+                  roomId: roomId, roomType: roomType, isOwner: isOwner);
+              floatingButtonVisibility.value = true;
+            });
       },
     ));
   }

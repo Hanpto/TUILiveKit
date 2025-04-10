@@ -6,7 +6,7 @@ import '../../../common/resources/index.dart';
 import '../../index.dart';
 import '../component/index.dart';
 
-enum TopWidgetTapEvent { stop, audienceList, liveInfo }
+enum TopWidgetTapEvent { float, stop, audienceList, liveInfo }
 
 class TopWidget extends StatefulWidget {
   final VoiceRoomManager manager;
@@ -32,6 +32,7 @@ class _TopWidgetState extends State<TopWidget> {
     return Stack(children: [
       _initLiveInfoWidget(),
       _initAudienceListWidget(),
+      _initFloatButton(),
       _initLeaveButton()
     ]);
   }
@@ -54,14 +55,30 @@ class _TopWidgetState extends State<TopWidget> {
     return Positioned(
         top: context.adapter.getHeight(8),
         bottom: context.adapter.getHeight(8),
-        right: context.adapter.getWidth(30),
+        right: context.adapter.getWidth(60),
         child: GestureDetector(
           onTap: () {
             widget.onTapTopWidget?.call(TopWidgetTapEvent.audienceList);
           },
-          child: Container(constraints: BoxConstraints(maxWidth: context.adapter.getWidth(107))
-          ,child: AudienceListWidget(roomId: manager.roomState.roomId)),
+          child: Container(
+              constraints:
+                  BoxConstraints(maxWidth: context.adapter.getWidth(107)),
+              child: AudienceListWidget(roomId: manager.roomState.roomId)),
         ));
+  }
+
+  Widget _initFloatButton() {
+    return Positioned(
+        top: context.adapter.getHeight(10),
+        bottom: context.adapter.getHeight(10),
+        right: context.adapter.getWidth(30),
+        child: SizedBox(
+            width: context.adapter.getWidth(20),
+            height: context.adapter.getWidth(20),
+            child: GestureDetector(
+                onTap: () =>
+                    widget.onTapTopWidget?.call(TopWidgetTapEvent.float),
+                child: const FlutterLogo())));
   }
 
   Widget _initLeaveButton() {
@@ -77,9 +94,7 @@ class _TopWidgetState extends State<TopWidget> {
             child: GestureDetector(
               onTap: () => widget.onTapTopWidget?.call(TopWidgetTapEvent.stop),
               child: Image.asset(
-                isOwner
-                    ? LiveImages.close
-                    : LiveImages.audienceClose,
+                isOwner ? LiveImages.close : LiveImages.audienceClose,
                 package: Constants.pluginName,
               ),
             )));

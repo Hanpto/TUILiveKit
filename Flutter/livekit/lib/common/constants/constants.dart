@@ -1,5 +1,8 @@
 class Constants {
   static const String pluginName = 'tencent_live_uikit';
+  static const String routeLiveRoomAudience = "route_live_room_audience";
+  static const String routeVoiceRoom = "route_voice_room";
+
   static const String defaultCoverUrl =
       'https://liteav-test-1252463788.cos.ap-guangzhou.myqcloud.com/voice_room/voice_room_cover1.png';
   static const List<String> coverUrlList = [

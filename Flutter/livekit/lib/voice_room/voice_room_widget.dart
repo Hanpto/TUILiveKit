@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:live_stream_core/live_stream_core.dart';
 import 'package:rtc_room_engine/rtc_room_engine.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:tencent_live_uikit/live_identity_generator.dart';
+import 'package:tencent_live_uikit/voice_room/widget/voice_room_store.dart';
 
 import '../common/language/index.dart';
 import '../common/platform/index.dart';
@@ -29,9 +31,17 @@ class TUIVoiceRoomWidget extends StatefulWidget {
   final String roomId;
   final RoomBehavior behavior;
   final RoomParams? params;
+  final void Function(String roomId, RoomType roomType, bool isOwner)?
+      onMinimize;
+  final bool isRestore;
 
   const TUIVoiceRoomWidget(
-      {super.key, required this.roomId, required this.behavior, this.params});
+      {super.key,
+      required this.roomId,
+      required this.behavior,
+      this.params,
+      this.onMinimize,
+      this.isRestore = false});
 
   @override
   State<TUIVoiceRoomWidget> createState() => _TUIVoiceRoomWidgetState();
@@ -55,12 +65,15 @@ class _TUIVoiceRoomWidgetState extends State<TUIVoiceRoomWidget> {
     behavior = widget.behavior;
     params = widget.params;
     manager = VoiceRoomManager();
-    seatGridController = SeatGridController();
-
+    if (widget.isRestore && VoiceRoomStore().getController(roomId) != null) {
+      seatGridController = VoiceRoomStore().getController(roomId)!;
+    } else {
+      seatGridController = SeatGridController();
+    }
     _subscribeToast();
     manager.initManager(roomId: roomId, param: params);
 
-    _needToPrepare.value = behavior != RoomBehavior.join;
+    _needToPrepare.value = behavior == RoomBehavior.prepareCreate;
   }
 
   @override
@@ -106,7 +119,11 @@ class _TUIVoiceRoomWidgetState extends State<TUIVoiceRoomWidget> {
                   roomId: roomId,
                   manager: manager,
                   seatGridController: seatGridController,
-                  isCreate: behavior != RoomBehavior.join));
+                  isCreate: behavior == RoomBehavior.prepareCreate,
+                  onMinimize: (roomId, roomType, isOwner) {
+                    widget.onMinimize?.call(roomId, roomType, isOwner);
+                    VoiceRoomStore().putController(roomId, seatGridController);
+                  }));
         });
   }
 }
